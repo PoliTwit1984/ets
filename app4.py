@@ -1,12 +1,10 @@
 import streamlit as st
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 from azure.cosmos import CosmosClient
 import html
 import base64
 import logging
-import pandas as pd
-import plotly.express as px
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -44,16 +42,6 @@ def initialize_cosmos_client():
         st.error(
             "An error occurred while connecting to Cosmos DB. Please check the application logs.")
     return None
-
-
-def get_all_tweets(container):
-    query = """
-    SELECT *
-    FROM c
-    WHERE c.author.username = 'elonmusk'
-    ORDER BY c.created_at DESC
-    """
-    return list(container.query_items(query=query, enable_cross_partition_query=True))
 
 
 def get_last_10_tweets(container):
@@ -235,7 +223,6 @@ def display_tweet_content(tweet):
             "conversation_id": tweet.get('conversation_id', ''),
             "lang": tweet.get('lang', ''),
             "possibly_sensitive": tweet.get('possibly_sensitive', 'N/A'),
-            # <--- Missing comma added here
             "reply_settings": tweet.get('reply_settings', 'N/A'),
             "edit_controls": tweet.get('edit_controls', 'N/A'),
             "author_info": {
@@ -250,29 +237,6 @@ def display_tweet_content(tweet):
         })
 
 
-def display_frequency_chart(container, freq):
-    tweets = get_all_tweets(container)
-    df = pd.DataFrame(tweets)
-
-    # Ensure created_at is datetime
-    df['created_at'] = pd.to_datetime(df['created_at'])
-
-    # Set the frequency for resampling
-    if freq == 'Daily':
-        df = df.set_index('created_at').resample(
-            'D').size().reset_index(name='count')
-    elif freq == 'Weekly':
-        df = df.set_index('created_at').resample(
-            'W').size().reset_index(name='count')
-    elif freq == 'Monthly':
-        df = df.set_index('created_at').resample(
-            'M').size().reset_index(name='count')
-
-    fig = px.line(df, x='created_at', y='count',
-                  title=f'Elon Musk Tweet Frequency ({freq})')
-    st.plotly_chart(fig)
-
-
 def main():
     st.set_page_config(layout="wide")
 
@@ -285,46 +249,27 @@ def main():
     st.sidebar.title("Options")
     display_option = st.sidebar.radio(
         "Choose what to display:",
-        ("Last 10 Elon Tweets", "All Tweet Threads",
-         "Tweets by Date", "Tweet Frequency")
+        ("Last 10 Elon Tweets", "All Tweet Threads", "Tweets by Date")
     )
 
     if display_option == "Last 10 Elon Tweets":
         st.title("Elon Musk's Last 10 Tweets")
         tweets = get_elon_tweets(container)
-        for i, tweet in enumerate(tweets, 1):
-            st.subheader(f"Tweet {i}")
-            thread = get_tweet_thread(container, tweet)
-            display_tweet_thread(thread)
-            st.markdown("---")
-
     elif display_option == "All Tweet Threads":
         st.title("All Tweet Threads")
         tweets = get_last_10_tweets(container)
-        for i, tweet in enumerate(tweets, 1):
-            st.subheader(f"Tweet Thread {i}")
-            thread = get_tweet_thread(container, tweet)
-            display_tweet_thread(thread)
-            st.markdown("---")
-
     elif display_option == "Tweets by Date":
         st.title("Elon Musk's Tweets by Date")
         date = st.sidebar.date_input("Select a date", value=datetime.now())
         date_str = date.strftime("%Y-%m-%d")
         tweets = get_tweets_on_date(container, date_str)
-        for i, tweet in enumerate(tweets, 1):
-            st.subheader(f"Tweet {i}")
-            thread = get_tweet_thread(container, tweet)
-            display_tweet_thread(thread)
-            st.markdown("---")
 
-    elif display_option == "Tweet Frequency":
-        st.title("Elon Musk Tweet Frequency")
-        freq_option = st.sidebar.radio(
-            "Select frequency:",
-            ("Daily", "Weekly", "Monthly")
-        )
-        display_frequency_chart(container, freq_option)
+    for i, tweet in enumerate(tweets, 1):
+        st.subheader(f"Tweet {'Thread ' if display_option ==
+                     'All Tweet Threads' else ''}{i}")
+        thread = get_tweet_thread(container, tweet)
+        display_tweet_thread(thread)
+        st.markdown("---")
 
 
 if __name__ == "__main__":
