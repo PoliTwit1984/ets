@@ -63,17 +63,6 @@ def get_elon_tweets(container, limit=10):
     return list(container.query_items(query=query, enable_cross_partition_query=True))
 
 
-def get_tweets_on_date(container, date):
-    query = f"""
-    SELECT *
-    FROM c
-    WHERE STARTSWITH(c.created_at, '{date}')
-    AND c.author.username = 'elonmusk'
-    ORDER BY c.created_at DESC
-    """
-    return list(container.query_items(query=query, enable_cross_partition_query=True))
-
-
 def get_tweet_thread(container, tweet):
     thread = [tweet]
     current_tweet = tweet
@@ -249,20 +238,15 @@ def main():
     st.sidebar.title("Options")
     display_option = st.sidebar.radio(
         "Choose what to display:",
-        ("Last 10 Elon Tweets", "All Tweet Threads", "Tweets by Date")
+        ("Last 10 Elon Tweets", "All Tweet Threads")
     )
 
     if display_option == "Last 10 Elon Tweets":
         st.title("Elon Musk's Last 10 Tweets")
         tweets = get_elon_tweets(container)
-    elif display_option == "All Tweet Threads":
+    else:
         st.title("All Tweet Threads")
         tweets = get_last_10_tweets(container)
-    elif display_option == "Tweets by Date":
-        st.title("Elon Musk's Tweets by Date")
-        date = st.sidebar.date_input("Select a date", value=datetime.now())
-        date_str = date.strftime("%Y-%m-%d")
-        tweets = get_tweets_on_date(container, date_str)
 
     for i, tweet in enumerate(tweets, 1):
         st.subheader(f"Tweet {'Thread ' if display_option ==
