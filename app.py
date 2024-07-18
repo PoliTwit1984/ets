@@ -59,61 +59,60 @@ def format_date(date_string):
 
 
 def display_tweet_thread(thread):
-    st.markdown("""
-    <style>
-    .tweet-container {
-        border: 1px solid #cfd9de;
-        border-radius: 16px;
-        padding: 12px;
-        margin-bottom: 12px;
-        background-color: #ffffff;
-    }
-    .referenced-tweet {
-        background-color: #f7f9f9;
-    }
-    .reply-tweet {
-        margin-left: 20px;
-        border-left: 2px solid #cfd9de;
-    }
-    .replying-to {
-        color: #536471;
-        font-size: 13px;
-        margin-left: 20px;
-        margin-bottom: 5px;
-    }
-    .tweet-header {
-        display: flex;
-        align-items: center;
-        margin-bottom: 8px;
-    }
-    .tweet-author-image {
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
-        margin-right: 8px;
-    }
-    .tweet-author-name {
-        font-weight: bold;
-        margin-bottom: 0;
-    }
-    .tweet-author-username {
-        color: #536471;
-    }
-    .tweet-text {
-        margin-bottom: 12px;
-    }
-    .tweet-date {
-        color: #536471;
-        font-size: 14px;
-        margin-bottom: 12px;
-    }
-    .tweet-metrics {
-        display: flex;
-        justify-content: space-between;
-        color: #536471;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    styles = [
+        ".tweet-container {",
+        "    border: 1px solid #cfd9de;",
+        "    border-radius: 16px;",
+        "    padding: 12px;",
+        "    margin-bottom: 12px;",
+        "    background-color: #ffffff;",
+        "}",
+        ".referenced-tweet {",
+        "    background-color: #f7f9f9;",
+        "}",
+        ".reply-tweet {",
+        "    margin-left: 20px;",
+        "    border-left: 2px solid #cfd9de;",
+        "}",
+        ".replying-to {",
+        "    color: #536471;",
+        "    font-size: 13px;",
+        "    margin-left: 20px;",
+        "    margin-bottom: 5px;",
+        "}",
+        ".tweet-header {",
+        "    display: flex;",
+        "    align-items: center;",
+        "    margin-bottom: 8px;",
+        "}",
+        ".tweet-author-image {",
+        "    width: 48px;",
+        "    height: 48px;",
+        "    border-radius: 50%;",
+        "    margin-right: 8px;",
+        "}",
+        ".tweet-author-name {",
+        "    font-weight: bold;",
+        "    margin-bottom: 0;",
+        "}",
+        ".tweet-author-username {",
+        "    color: #536471;",
+        "}",
+        ".tweet-text {",
+        "    margin-bottom: 12px;",
+        "}",
+        ".tweet-date {",
+        "    color: #536471;",
+        "    font-size: 14px;",
+        "    margin-bottom: 12px;",
+        "}",
+        ".tweet-metrics {",
+        "    display: flex;",
+        "    justify-content: space-between;",
+        "    color: #536471;",
+        "}"
+    ]
+    st.markdown(f"<style>{''.join(styles)}</style>", unsafe_allow_html=True)
 
     for i, tweet in enumerate(thread):
         css_class = "referenced-tweet" if i < len(thread) - \
@@ -135,15 +134,16 @@ def display_tweet_content(tweet):
     name = html.escape(tweet.get('author', {}).get('name', 'Unknown'))
     username = html.escape(tweet.get('author', {}).get('username', 'unknown'))
 
-    st.markdown(f"""
-    <div class="tweet-header">
-        <img src="{profile_image_url}" class="tweet-author-image">
-        <div>
-            <p class="tweet-author-name">{name}</p>
-            <p class="tweet-author-username">@{username}</p>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    header_html = [
+        f'<div class="tweet-header">',
+        f'    <img src="{profile_image_url}" class="tweet-author-image">',
+        f'    <div>',
+        f'        <p class="tweet-author-name">{name}</p>',
+        f'        <p class="tweet-author-username">@{username}</p>',
+        f'    </div>',
+        f'</div>'
+    ]
+    st.markdown(''.join(header_html), unsafe_allow_html=True)
 
     # Tweet text
     text = html.escape(tweet.get("text", ""))
@@ -167,17 +167,21 @@ def display_tweet_content(tweet):
 
     # Tweet metrics
     public_metrics = tweet.get("public_metrics", {})
-    metrics_html = '<div class="tweet-metrics">'
-    metrics_html += f'<span>🔁 {public_metrics.get("retweet_count", 0)}</span>'
-    metrics_html += f'<span>💬 {public_metrics.get("reply_count", 0)}</span>'
-    metrics_html += f'<span>❤️ {public_metrics.get("like_count", 0)}</span>'
-    metrics_html += f'<span>🔄 {public_metrics.get("quote_count", 0)}</span>'
-    metrics_html += f'<span>🔖 {
-        public_metrics.get("bookmark_count", "N/A")}</span>'
-    metrics_html += f'<span>👁️ {public_metrics.get(
-        "impression_count", "N/A")}</span>'
-    metrics_html += '</div>'
-    st.markdown(metrics_html, unsafe_allow_html=True)
+    metrics = [
+        ("🔁", public_metrics.get("retweet_count", 0)),
+        ("💬", public_metrics.get("reply_count", 0)),
+        ("❤️", public_metrics.get("like_count", 0)),
+        ("🔄", public_metrics.get("quote_count", 0)),
+        ("🔖", public_metrics.get("bookmark_count", "N/A")),
+        ("👁️", public_metrics.get("impression_count", "N/A"))
+    ]
+
+    metrics_html = ['<div class="tweet-metrics">']
+    for icon, count in metrics:
+        metrics_html.append(f'<span>{icon} {count}</span>')
+    metrics_html.append('</div>')
+
+    st.markdown(''.join(metrics_html), unsafe_allow_html=True)
 
     # Additional Tweet Information
     with st.expander("Additional Tweet Information"):
