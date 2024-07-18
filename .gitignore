@@ -1,0 +1,56 @@
+# Ignore environment variables file
+.env
+
+# Ignore Streamlit secrets
+.streamlit/secrets.toml
+
+# Optionally, ignore the entire .streamlit directory
+.streamlit/
+
+# Ignore local settings file
+local.settings.json
+
+# Ignore node_modules directory
+node_modules/
+
+# Ignore log files
+*.log
+
+# Ignore OS generated files
+.DS_Store
+Thumbs.db
+
+# Ignore IDE/editor specific files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Ignore compiled code
+dist/
+build/
+out/
+
+# Ignore dependency directories
+bower_components/
+jspm_packages/
+
+# Ignore Python cache files
+__pycache__/
+*.pyc
+
+# Ignore other specific files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Ignore miscellaneous files
+*.bak
+*.swp
+*.tmp
+*.temp
+*.joe
+
+# Ignore virtual environment directory
+.venv/
