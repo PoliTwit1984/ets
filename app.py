@@ -3,17 +3,45 @@ import json
 from datetime import datetime
 from azure.cosmos import CosmosClient
 import html
+import base64
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def initialize_cosmos_client():
-    endpoint = st.secrets["cosmosdb"]["COSMOS_DB_ENDPOINT"]
-    key = st.secrets["cosmosdb"]["COSMOS_DB_KEY"]
-    client = CosmosClient(endpoint, key)
-    database = client.get_database_client(
-        st.secrets["cosmosdb"]["COSMOS_DB_DATABASE_NAME"])
-    container = database.get_container_client(
-        st.secrets["cosmosdb"]["COSMOS_DB_CONTAINER_NAME"])
-    return container
+    try:
+        endpoint = st.secrets["cosmosdb"]["COSMOS_DB_ENDPOINT"]
+        key = st.secrets["cosmosdb"]["COSMOS_DB_KEY"]
+        database_name = st.secrets["cosmosdb"]["COSMOS_DB_DATABASE_NAME"]
+        container_name = st.secrets["cosmosdb"]["COSMOS_DB_CONTAINER_NAME"]
+
+        logger.info(f"Length of Cosmos DB key: {len(key)}")
+
+        try:
+            base64.b64decode(key, validate=True)
+        except base64.binascii.Error:
+            logger.error(
+                "The Cosmos DB key is not a valid base64-encoded string.")
+            st.error(
+                "There's an issue with the Cosmos DB key. Please check the application logs.")
+            return None
+
+        client = CosmosClient(endpoint, key)
+        database = client.get_database_client(database_name)
+        container = database.get_container_client(container_name)
+        logger.info("Successfully initialized Cosmos DB client")
+        return container
+    except KeyError as e:
+        logger.error(f"Missing Cosmos DB configuration: {str(e)}")
+        st.error(
+            "Missing Cosmos DB configuration. Please check your Streamlit secrets.")
+    except Exception as e:
+        logger.error(f"Error initializing Cosmos DB client: {str(e)}")
+        st.error(
+            "An error occurred while connecting to Cosmos DB. Please check the application logs.")
+    return None
 
 
 def get_last_10_tweets(container):
@@ -129,27 +157,24 @@ def display_tweet_thread(thread):
 
 
 def display_tweet_content(tweet):
-    # Tweet header
     profile_image_url = tweet.get('author', {}).get('profile_image_url', '')
     name = html.escape(tweet.get('author', {}).get('name', 'Unknown'))
     username = html.escape(tweet.get('author', {}).get('username', 'unknown'))
 
     header_html = [
-        f'<div class="tweet-header">',
+        '<div class="tweet-header">',
         f'    <img src="{profile_image_url}" class="tweet-author-image">',
-        f'    <div>',
+        '    <div>',
         f'        <p class="tweet-author-name">{name}</p>',
         f'        <p class="tweet-author-username">@{username}</p>',
-        f'    </div>',
-        f'</div>'
+        '    </div>',
+        '</div>'
     ]
     st.markdown(''.join(header_html), unsafe_allow_html=True)
 
-    # Tweet text
     text = html.escape(tweet.get("text", ""))
     st.markdown(f'<p class="tweet-text">{text}</p>', unsafe_allow_html=True)
 
-    # Media
     if 'media' in tweet:
         for media in tweet['media']:
             if media['type'] == 'photo':
@@ -159,13 +184,11 @@ def display_tweet_content(tweet):
                 if 'preview_image_url' in media:
                     st.image(media['preview_image_url'])
 
-    # Tweet date
     created_at = tweet.get("created_at", "")
     if created_at:
         st.markdown(
             f'<p class="tweet-date">{format_date(created_at)}</p>', unsafe_allow_html=True)
 
-    # Tweet metrics
     public_metrics = tweet.get("public_metrics", {})
     metrics = [
         ("🔁", public_metrics.get("retweet_count", 0)),
@@ -177,13 +200,12 @@ def display_tweet_content(tweet):
     ]
 
     metrics_html = ['<div class="tweet-metrics">']
-    for icon, count in metrics:
-        metrics_html.append(f'<span>{icon} {count}</span>')
+    metrics_html.extend(
+        [f'<span>{icon} {count}</span>' for icon, count in metrics])
     metrics_html.append('</div>')
 
     st.markdown(''.join(metrics_html), unsafe_allow_html=True)
 
-    # Additional Tweet Information
     with st.expander("Additional Tweet Information"):
         st.json({
             "id": tweet.get('id', ''),
@@ -208,8 +230,11 @@ def main():
     st.set_page_config(layout="wide")
 
     container = initialize_cosmos_client()
+    if container is None:
+        st.error(
+            "Failed to initialize Cosmos DB client. The app cannot function without a database connection.")
+        return
 
-    # Sidebar
     st.sidebar.title("Options")
     display_option = st.sidebar.radio(
         "Choose what to display:",
@@ -219,21 +244,16 @@ def main():
     if display_option == "Last 10 Elon Tweets":
         st.title("Elon Musk's Last 10 Tweets")
         tweets = get_elon_tweets(container)
-
-        for i, tweet in enumerate(tweets, 1):
-            st.subheader(f"Tweet {i}")
-            thread = get_tweet_thread(container, tweet)
-            display_tweet_thread(thread)
-            st.markdown("---")
     else:
         st.title("All Tweet Threads")
         tweets = get_last_10_tweets(container)
 
-        for i, tweet in enumerate(tweets, 1):
-            st.subheader(f"Tweet Thread {i}")
-            thread = get_tweet_thread(container, tweet)
-            display_tweet_thread(thread)
-            st.markdown("---")
+    for i, tweet in enumerate(tweets, 1):
+        st.subheader(f"Tweet {'Thread ' if display_option ==
+                     'All Tweet Threads' else ''}{i}")
+        thread = get_tweet_thread(container, tweet)
+        display_tweet_thread(thread)
+        st.markdown("---")
 
 
 if __name__ == "__main__":
