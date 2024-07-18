@@ -3,24 +3,16 @@ import json
 from datetime import datetime
 from azure.cosmos import CosmosClient
 import html
-import logging
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
-def load_settings():
-    with open('local.settings.json') as config_file:
-        return json.load(config_file)['Values']
-
-
-def initialize_cosmos_client(settings):
-    endpoint = settings["COSMOS_DB_ENDPOINT"]
-    key = settings["COSMOS_DB_KEY"]
+def initialize_cosmos_client():
+    endpoint = st.secrets["cosmosdb"]["COSMOS_DB_ENDPOINT"]
+    key = st.secrets["cosmosdb"]["COSMOS_DB_KEY"]
     client = CosmosClient(endpoint, key)
-    database = client.get_database_client(settings["COSMOS_DB_DATABASE_NAME"])
+    database = client.get_database_client(
+        st.secrets["cosmosdb"]["COSMOS_DB_DATABASE_NAME"])
     container = database.get_container_client(
-        settings["COSMOS_DB_CONTAINER_NAME"])
+        st.secrets["cosmosdb"]["COSMOS_DB_CONTAINER_NAME"])
     return container
 
 
@@ -132,11 +124,9 @@ def display_tweet_thread(thread):
         st.markdown('</div>', unsafe_allow_html=True)
 
         if i < len(thread) - 1:
-            logger.info("Tweet author data: %s",
-                        tweet.get('author', 'No author data'))
             username = tweet.get("author", {}).get("username", "Unknown")
             st.markdown(
-                f'<p class="replying-to">Replying to @{username}</p>', unsafe_allow_html=True)
+                f'<p class="replying-to">Replying to @{html.escape(username)}</p>', unsafe_allow_html=True)
 
 
 def display_tweet_content(tweet):
@@ -163,7 +153,7 @@ def display_tweet_content(tweet):
     if 'media' in tweet:
         for media in tweet['media']:
             if media['type'] == 'photo':
-                st.image(media['url'])
+                st.image(media.get('url', ''))
             elif media['type'] == 'video':
                 st.write("Video content available (cannot be displayed directly)")
                 if 'preview_image_url' in media:
@@ -172,9 +162,8 @@ def display_tweet_content(tweet):
     # Tweet date
     created_at = tweet.get("created_at", "")
     if created_at:
-        formatted_date = format_date(created_at)
         st.markdown(
-            f'<p class="tweet-date">{formatted_date}</p>', unsafe_allow_html=True)
+            f'<p class="tweet-date">{format_date(created_at)}</p>', unsafe_allow_html=True)
 
     # Tweet metrics
     public_metrics = tweet.get("public_metrics", {})
@@ -214,8 +203,7 @@ def display_tweet_content(tweet):
 def main():
     st.set_page_config(layout="wide")
 
-    settings = load_settings()
-    container = initialize_cosmos_client(settings)
+    container = initialize_cosmos_client()
 
     # Sidebar
     st.sidebar.title("Options")
