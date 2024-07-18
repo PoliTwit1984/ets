@@ -1,21 +1,26 @@
-import logging
 import streamlit as st
 import json
 from datetime import datetime
 from azure.cosmos import CosmosClient
 import html
+import logging
 
-# initialize_cosmos_client with toml
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
-def initialize_cosmos_client():
-    endpoint = st.secrets["cosmosdb"]["COSMOS_DB_ENDPOINT"]
-    key = st.secrets["cosmosdb"]["COSMOS_DB_KEY"]
+def load_settings():
+    with open('local.settings.json') as config_file:
+        return json.load(config_file)['Values']
+
+
+def initialize_cosmos_client(settings):
+    endpoint = settings["COSMOS_DB_ENDPOINT"]
+    key = settings["COSMOS_DB_KEY"]
     client = CosmosClient(endpoint, key)
-    database = client.get_database_client(
-        st.secrets["cosmosdb"]["COSMOS_DB_DATABASE_NAME"])
+    database = client.get_database_client(settings["COSMOS_DB_DATABASE_NAME"])
     container = database.get_container_client(
-        st.secrets["cosmosdb"]["COSMOS_DB_CONTAINER_NAME"])
+        settings["COSMOS_DB_CONTAINER_NAME"])
     return container
 
 
@@ -59,10 +64,6 @@ def get_tweet_thread(container, tweet):
 def format_date(date_string):
     tweet_date = datetime.strptime(date_string, "%Y-%m-%dT%H:%M:%S.%fZ")
     return tweet_date.strftime("%I:%M %p · %b %d, %Y")
-
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 def display_tweet_thread(thread):
@@ -131,8 +132,8 @@ def display_tweet_thread(thread):
         st.markdown('</div>', unsafe_allow_html=True)
 
         if i < len(thread) - 1:
-            logger.info(f"Tweet author data: {
-                        tweet.get('author', 'No author data')}")
+            logger.info("Tweet author data: %s",
+                        tweet.get('author', 'No author data'))
             username = tweet.get("author", {}).get("username", "Unknown")
             st.markdown(
                 f'<p class="replying-to">Replying to @{username}</p>', unsafe_allow_html=True)
@@ -213,7 +214,8 @@ def display_tweet_content(tweet):
 def main():
     st.set_page_config(layout="wide")
 
-    container = initialize_cosmos_client()
+    settings = load_settings()
+    container = initialize_cosmos_client(settings)
 
     # Sidebar
     st.sidebar.title("Options")
