@@ -1,3 +1,4 @@
+import logging
 import streamlit as st
 import json
 from datetime import datetime
@@ -58,6 +59,10 @@ def get_tweet_thread(container, tweet):
 def format_date(date_string):
     tweet_date = datetime.strptime(date_string, "%Y-%m-%dT%H:%M:%S.%fZ")
     return tweet_date.strftime("%I:%M %p · %b %d, %Y")
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def display_tweet_thread(thread):
@@ -126,25 +131,32 @@ def display_tweet_thread(thread):
         st.markdown('</div>', unsafe_allow_html=True)
 
         if i < len(thread) - 1:
-            st.markdown(f'<p class="replying-to">Replying to @{
-                        tweet["author"]["username"]}</p>', unsafe_allow_html=True)
+            logger.info(f"Tweet author data: {
+                        tweet.get('author', 'No author data')}")
+            username = tweet.get("author", {}).get("username", "Unknown")
+            st.markdown(
+                f'<p class="replying-to">Replying to @{username}</p>', unsafe_allow_html=True)
 
 
 def display_tweet_content(tweet):
     # Tweet header
+    profile_image_url = tweet.get('author', {}).get('profile_image_url', '')
+    name = html.escape(tweet.get('author', {}).get('name', 'Unknown'))
+    username = html.escape(tweet.get('author', {}).get('username', 'unknown'))
+
     st.markdown(f"""
     <div class="tweet-header">
-        <img src="{tweet['author']['profile_image_url']}" class="tweet-author-image">
+        <img src="{profile_image_url}" class="tweet-author-image">
         <div>
-            <p class="tweet-author-name">{html.escape(tweet['author']['name'])}</p>
-            <p class="tweet-author-username">@{html.escape(tweet['author']['username'])}</p>
+            <p class="tweet-author-name">{name}</p>
+            <p class="tweet-author-username">@{username}</p>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
     # Tweet text
-    st.markdown(
-        f'<p class="tweet-text">{html.escape(tweet["text"])}</p>', unsafe_allow_html=True)
+    text = html.escape(tweet.get("text", ""))
+    st.markdown(f'<p class="tweet-text">{text}</p>', unsafe_allow_html=True)
 
     # Media
     if 'media' in tweet:
@@ -157,19 +169,22 @@ def display_tweet_content(tweet):
                     st.image(media['preview_image_url'])
 
     # Tweet date
-    st.markdown(
-        f'<p class="tweet-date">{format_date(tweet["created_at"])}</p>', unsafe_allow_html=True)
+    created_at = tweet.get("created_at", "")
+    if created_at:
+        formatted_date = format_date(created_at)
+        st.markdown(
+            f'<p class="tweet-date">{formatted_date}</p>', unsafe_allow_html=True)
 
     # Tweet metrics
+    public_metrics = tweet.get("public_metrics", {})
     metrics_html = '<div class="tweet-metrics">'
-    metrics_html += f'<span>🔁 {tweet["public_metrics"]
-                               ["retweet_count"]}</span>'
-    metrics_html += f'<span>💬 {tweet["public_metrics"]["reply_count"]}</span>'
-    metrics_html += f'<span>❤️ {tweet["public_metrics"]["like_count"]}</span>'
-    metrics_html += f'<span>🔄 {tweet["public_metrics"]["quote_count"]}</span>'
+    metrics_html += f'<span>🔁 {public_metrics.get("retweet_count", 0)}</span>'
+    metrics_html += f'<span>💬 {public_metrics.get("reply_count", 0)}</span>'
+    metrics_html += f'<span>❤️ {public_metrics.get("like_count", 0)}</span>'
+    metrics_html += f'<span>🔄 {public_metrics.get("quote_count", 0)}</span>'
     metrics_html += f'<span>🔖 {
-        tweet["public_metrics"].get("bookmark_count", "N/A")}</span>'
-    metrics_html += f'<span>👁️ {tweet["public_metrics"].get(
+        public_metrics.get("bookmark_count", "N/A")}</span>'
+    metrics_html += f'<span>👁️ {public_metrics.get(
         "impression_count", "N/A")}</span>'
     metrics_html += '</div>'
     st.markdown(metrics_html, unsafe_allow_html=True)
@@ -177,20 +192,20 @@ def display_tweet_content(tweet):
     # Additional Tweet Information
     with st.expander("Additional Tweet Information"):
         st.json({
-            "id": tweet['id'],
-            "conversation_id": tweet['conversation_id'],
-            "lang": tweet['lang'],
+            "id": tweet.get('id', ''),
+            "conversation_id": tweet.get('conversation_id', ''),
+            "lang": tweet.get('lang', ''),
             "possibly_sensitive": tweet.get('possibly_sensitive', 'N/A'),
             "reply_settings": tweet.get('reply_settings', 'N/A'),
             "edit_controls": tweet.get('edit_controls', 'N/A'),
             "author_info": {
-                "id": tweet['author']['id'],
-                "created_at": tweet['author']['created_at'],
-                "description": tweet['author'].get('description', 'N/A'),
-                "location": tweet['author'].get('location', 'Not specified'),
-                "verified": tweet['author'].get('verified', 'N/A'),
-                "verified_type": tweet['author'].get('verified_type', 'Not specified'),
-                "public_metrics": tweet['author'].get('public_metrics', {})
+                "id": tweet.get('author', {}).get('id', ''),
+                "created_at": tweet.get('author', {}).get('created_at', ''),
+                "description": tweet.get('author', {}).get('description', 'N/A'),
+                "location": tweet.get('author', {}).get('location', 'Not specified'),
+                "verified": tweet.get('author', {}).get('verified', 'N/A'),
+                "verified_type": tweet.get('author', {}).get('verified_type', 'Not specified'),
+                "public_metrics": tweet.get('author', {}).get('public_metrics', {})
             }
         })
 
